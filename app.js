@@ -4,7 +4,7 @@ const express= require("express");
 const bodyParser=require("body-parser");
 const ejs=require("ejs");
 const mongoose=require("mongoose");
-const md5=require("md5");
+const bcrypt= require("bcrypt");
 
 
 mongoose.connect("mongodb://127.0.0.1:27017/userDB").then(() => {
@@ -50,17 +50,21 @@ app.post("/register", function(req, res){
            res.send("you are already ragistered. please login");
           }
        else{
-           const username=req.body.username;
-           const password=md5(req.body.password);
-           const user=new User({
-            userName:username,
-            password:password
-          })
-          user.save().then(()=>{
-            res.render("secrets");
-          }).catch((e)=>{
-            res.send(e);
-         });
+
+        bcrypt.hash(req.body.password, 12).then(function(hash) {
+            // Store hash in your password DB.
+            const username=req.body.username;
+            const user=new User({
+             userName:username,
+             password:hash
+           })
+           user.save().then(()=>{
+             res.render("secrets");
+           }).catch((e)=>{
+             res.send(e);
+          });
+        });
+          
        }
     }).catch((e)=>{
         res.send(e);
@@ -72,14 +76,18 @@ app.post("/register", function(req, res){
 
 app.post("/login", function(req,res){
     const username=req.body.username;
-    const password=md5(req.body.password);
+    const password=req.body.password;
     User.findOne({userName:username}).then((e)=>{
         if(e){
-            if(e.password===password){
-               res.render("secrets");
-            }else{
-                res.send("password is wrong");
-            }
+            bcrypt.compare(password, e.password).then(function(result) {
+                // result == true
+                if(result===true){
+                    res.render("secrets");
+                }
+                else{
+                    res.send("password is wrong");
+                }
+            });
         }
         else{
             res.send("username or password is wrong, please register if you havn't");
